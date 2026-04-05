@@ -39,7 +39,17 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { messages, model, max_tokens } = req.body;
+    // 🔑 ПОЛУЧАЕМ КЛЮЧ ИЗ ПЕРЕМЕННЫХ ОКРУЖЕНИЯ
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    
+    if (!apiKey) {
+      return res.status(500).json({
+        error: "API Key not configured",
+        message: "Add ANTHROPIC_API_KEY to environment variables"
+      });
+    }
+
+    const { messages } = req.body;
     
     if (!messages || !Array.isArray(messages)) {
       return res.status(400).json({ error: "Messages required" });
@@ -48,41 +58,55 @@ export default async function handler(req, res) {
     // 📥 ЗАГРУЖАЕМ СИСТЕМНЫЙ ПРОМТ
     const systemPrompt = await loadSystemPrompt();
     
-    // ✅ ДОБАВЛЯЕМ ПРОМТ ЕСЛИ ЕГО НЕТ
-    let messagesWithSystem = messages;
-    if (messages.length === 0 || messages[0].role !== "system") {
-      messagesWithSystem = [
-        { role: "system", content: systemPrompt },
-        ...messages
-      ];
-    }
+    // ✅ ГОТОВИМ СООБЩЕНИЯ ДЛЯ ANTHROPIC
+    const messagesForApi = messages.map(msg => ({
+      role: msg.role,
+      content: msg.content
+    }));
 
-    // 🚀 ОТПРАВЛЯЕМ В OPENROUTER AI
-    const aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    // 🚀 ОТПРАВЛЯЕМ В ANTHROPIC API
+    const aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://amina-bot.vercel.app",
-        "X-Title": "AminaBot"
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: model || "openai/gpt-4o-mini",
-        max_tokens: max_tokens || 1500,
-        messages: messagesWithSystem
+        model: "claude-3-5-sonnet-20241022",
+        max_tokens: 1500,
+        system: systemPrompt,
+        messages: messagesForApi
       })
     });
 
     const data = await aiResponse.json();
 
-    // ✅ ВОЗВРАЩАЕМ ОТВЕТ
-    res.status(aiResponse.status).json(data);
+    // ✅ ПРЕОБРАЗУЕМ ОТВЕТ
+    const response = {
+      choices: [
+        {
+          message: {
+            content: data.content?.[0]?.text || "Ошибка: нет ответа"
+          }
+        }
+      ]
+    };
+
+    res.status(200).json(response);
 
   } catch (error) {
     console.error("Ошибка сервера:", error);
     res.status(500).json({
       error: "Server error",
-      message: error.message
+      message: error.message,
+      choices: [
+        {
+          message: {
+            content: "Ошибка соединения с AI. Попробуйте еще раз."
+          }
+        }
+      ]
     });
   }
 }
