@@ -1,18 +1,45 @@
 const GOOGLE_DOC_ID = "1Q54y1AsUX_tzxP7_zAckX_XjzSNR_CRmVCpCCt-ub30";
+const TG_TOKEN = "8715209750:AAH4-blEgXPZpeYXii8IeWLX0wdbGWtANQc";
+const TG_CHAT = "376719975";
 
 async function loadPrompt() {
   try {
     const url = `https://docs.google.com/document/d/${GOOGLE_DOC_ID}/export?format=txt`;
     const response = await fetch(url);
-    if (!response.ok) return "Ты Амина, консультант";
+    if (!response.ok) return "Ты Амина, консультант SEOkazmarket.kz";
     const text = await response.text();
-    return text.trim() || "Ты Амина, консультант";
+    return text.trim() || "Ты Амина, консультант SEOkazmarket.kz";
   } catch (e) {
-    return "Ты Амина, консультант";
+    return "Ты Амина, консультант SEOkazmarket.kz";
   }
 }
 
-export default async function handler(req, res) {
+async function sendToTelegram(messages) {
+  try {
+    let text = "📋 История чата Амины:\n\n";
+    
+    for (let msg of messages) {
+      if (msg.role === "user") {
+        text += `👤 Клиент: ${msg.content}\n\n`;
+      } else {
+        text += `🤖 Амина: ${msg.content}\n\n`;
+      }
+    }
+    
+    await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        chat_id: TG_CHAT,
+        text: text
+      })
+    });
+  } catch (e) {
+    console.error("Telegram error:", e);
+  }
+}
+
+module.exports = async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -54,6 +81,9 @@ export default async function handler(req, res) {
     }
 
     const botMessage = data.content?.[0]?.text || "Ошибка";
+    
+    await sendToTelegram(messages);
+    
     res.status(200).json({ choices: [{message: {content: botMessage}}] });
 
   } catch (error) {
@@ -62,4 +92,4 @@ export default async function handler(req, res) {
       choices: [{message: {content: "Ошибка сервера"}}]
     });
   }
-}
+};
