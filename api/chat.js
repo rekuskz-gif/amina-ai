@@ -4,57 +4,55 @@ async function loadPrompt() {
   try {
     const url = `https://docs.google.com/document/d/${GOOGLE_DOC_ID}/export?format=txt`;
     const response = await fetch(url);
-    
-    if (!response.ok) {
-      return "Ты Амина, эксперт по продаже услуг ТОО SEOkazmarket.kz";
-    }
-    
+    if (!response.ok) return "Ты Амина, консультант SEOkazmarket.kz";
     const text = await response.text();
-    return text.trim() || "Ты Амина, эксперт по продаже услуг ТОО SEOkazmarket.kz";
-  } catch (error) {
-    console.error("Ошибка загрузки:", error);
-    return "Ты Амина, эксперт по продаже услуг ТОО SEOkazmarket.kz";
+    return text.trim() || "Ты Амина, консультант SEOkazmarket.kz";
+  } catch (e) {
+    return "Ты Амина, консультант SEOkazmarket.kz";
   }
 }
 
-// 🎯 ГЛАВНЫЙ ОБРАБОТЧИК
+function getAllowedDomains(systemPrompt) {
+  const match = systemPrompt.match(/РАЗРЕШЕННЫЕ САЙТЫ:([\s\S]*?)(?:\n\n|$)/);
+  if (!match) return ["seokazmarket.kz"];
+  const sites = match[1].split('\n').filter(line => line.includes('-'));
+  return sites.map(s => s.replace('-', '').trim()).filter(s => s);
+}
+
+function isAllowedDomain(userMessage, allowedDomains) {
+  const lowerMessage = userMessage.toLowerCase();
+  for (let domain of allowedDomains) {
+    if (lowerMessage.includes(domain)) return true;
+  }
+  return false;
+}
+
 export default async function handler(req, res) {
-  // 🔓 РАЗРЕШИТЬ ЗАПРОСЫ ИЗ ДРУГИХ САЙТОВ
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
-  
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Only POST allowed" });
-  }
+  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method !== "POST") return res.status(405).json({ error: "Only POST" });
 
   try {
-    // 🔑 ПОЛУЧАЕМ КЛЮЧ
     const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) return res.status(500).json({ error: "API Key not configured" });
+
+    const { messages } = req.body;
+    if (!messages || !Array.isArray(messages)) return res.status(400).json({ error: "Messages required" });
+
+    const systemPrompt = await loadPrompt();
+    const allowedDomains = getAllowedDomains(systemPrompt);
+    const userMessage = messages[messages.length - 1]?.content || "";
     
-    if (!apiKey) {
-      console.error("❌ ANTHROPIC_API_KEY не найден!");
-      return res.status(500).json({
-        error: "API Key not configured",
-        choices: [{message: {content: "Ошибка: API ключ не настроен."}}]
+    if (!isAllowedDomain(userMessage, allowedDomains)) {
+      return res.status(200).json({
+        choices: [{message: {content: `Я помогаю только с ${allowedDomains.join(", ")}`}}]
       });
     }
 
-    const { messages } = req.body;
-    
-    if (!messages || !Array.isArray(messages)) {
-      return res.status(400).json({ error: "Messages required" });
-    }
-
-    // 📥 ЗАГРУЖАЕМ ПРОМТ ИЗ GOOGLE DOCS
-    const systemPrompt = await loadPrompt();
-
-    // 🚀 ОТПРАВЛЯЕМ В ANTHROPIC API
-    const aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "x-api-key": apiKey,
@@ -63,32 +61,28 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: "claude-opus-4-1",
-        max_tokens: 1500,
+        max_tokens: 300,
         system: systemPrompt,
         messages: messages
       })
     });
 
-    const data = await aiResponse.json();
+    const data = await response.json();
 
-    if (!aiResponse.ok) {
-      return res.status(aiResponse.status).json({
+    if (!response.ok) {
+      return res.status(response.status).json({
         error: data.error?.message || "API Error",
-        choices: [{message: {content: "Ошибка API. Попробуйте еще раз."}}]
+        choices: [{message: {content: "Ошибка API"}}]
       });
     }
 
-    // ✅ ПРЕОБРАЗУЕМ ОТВЕТ
-    const botMessage = data.content?.[0]?.text || "Ошибка: нет ответа";
-
-    res.status(200).json({
+    const botMessage = data.content?.[0]?.text || "Ошибка";
+    res.status(200).json({ choices: [{message: {content: botMessage}}] });
 
   } catch (error) {
-    console.error("❌ Ошибка сервера:", error.message);
     res.status(500).json({
       error: "Server error",
-      message: error.message,
-      choices: [{message: {content: "Критическая ошибка сервера."}}]
+      choices: [{message: {content: "Ошибка сервера"}}]
     });
   }
 }
