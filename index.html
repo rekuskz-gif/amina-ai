@@ -1,129 +1,437 @@
-// 🔧 КОНФИГ
-const GOOGLE_DOC_ID = "1Q54y1AsUX_tzxP7_zAckX_XjzSNR_CRmVCpCCt-ub30";
-const DEFAULT_SYSTEM = "Ты — Амина, эксперт по продаже услуг ТОО SEOkazmarket.kz.";
-
-// 📥 ЗАГРУЗКА ПОЛНОГО КОНТЕНТА ИЗ GOOGLE DOCS
-async function loadContentFromDocs() {
-  try {
-    const url = `https://docs.google.com/document/d/${GOOGLE_DOC_ID}/export?format=txt`;
-    const response = await fetch(url);
-    
-    if (!response.ok) {
-      return { systemPrompt: DEFAULT_SYSTEM, greeting: null };
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Амина - AI Эксперт SEOkazmarket</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
     }
-    
-    const text = await response.text();
-    const lines = text.trim().split('\n').filter(line => line.trim());
-    
-    // Берем первую строку как приветствие (может быть несколько строк)
-    let greeting = null;
-    let systemPrompt = DEFAULT_SYSTEM;
-    
-    if (lines.length > 0) {
-      // Берем всё содержимое как системный промт
-      systemPrompt = text.trim();
+
+    body {
+      font-family: Georgia, serif;
+      background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .chat {
+      width: 100%;
+      max-width: 680px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 24px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      height: 85vh;
+      box-shadow: 0 8px 32px rgba(167, 139, 250, 0.2);
+    }
+
+    .header {
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      background: linear-gradient(90deg, rgba(124, 58, 237, 0.1), rgba(79, 70, 229, 0.1));
+    }
+
+    .avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 2px solid #a78bfa;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #7c3aed, #4f46e5);
+      color: white;
+      font-weight: bold;
+      font-size: 24px;
+    }
+
+    .header-info {
+      flex: 1;
+    }
+
+    .name {
+      color: white;
+      font-weight: bold;
+      font-size: 16px;
+    }
+
+    .status {
+      color: #a78bfa;
+      font-size: 12px;
+    }
+
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .msg {
+      max-width: 75%;
+      padding: 12px 16px;
+      border-radius: 16px;
+      color: white;
+      white-space: pre-wrap;
+      line-height: 1.6;
+      word-break: break-word;
+    }
+
+    .user {
+      align-self: flex-end;
+      background: linear-gradient(135deg, #7c3aed, #4f46e5);
+      border-radius: 18px 18px 4px 18px;
+    }
+
+    .bot {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 18px 18px 18px 4px;
+      align-self: flex-start;
+    }
+
+    .typing {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      padding: 14px 16px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 18px 18px 18px 4px;
+      width: fit-content;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #a78bfa;
+      animation: bounce 1.2s infinite;
+    }
+
+    .dot:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+
+    .dot:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+
+    @keyframes bounce {
+      0%, 60%, 100% {
+        transform: translateY(0);
+      }
+      30% {
+        transform: translateY(-6px);
+      }
+    }
+
+    .input-area {
+      display: flex;
+      gap: 10px;
+      padding: 16px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      background: linear-gradient(90deg, rgba(124, 58, 237, 0.05), rgba(79, 70, 229, 0.05));
+    }
+
+    textarea {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      padding: 10px 14px;
+      color: white;
+      font-size: 15px;
+      resize: none;
+      outline: none;
+      font-family: inherit;
+      min-height: 44px;
+      max-height: 100px;
+    }
+
+    textarea::placeholder {
+      color: rgba(255, 255, 255, 0.3);
+    }
+
+    textarea:focus {
+      border-color: rgba(167, 139, 250, 0.5);
+    }
+
+    button {
+      width: 46px;
+      height: 46px;
+      border: none;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #7c3aed, #4f46e5);
+      color: white;
+      cursor: pointer;
+      font-size: 20px;
+      flex-shrink: 0;
+      transition: all 0.2s;
+    }
+
+    button:hover:not(:disabled) {
+      transform: scale(1.05);
+      box-shadow: 0 4px 16px rgba(124, 58, 237, 0.4);
+    }
+
+    button:disabled {
+      background: rgba(124, 58, 237, 0.3);
+      cursor: not-allowed;
+    }
+
+    .messages::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .messages::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .messages::-webkit-scrollbar-thumb {
+      background: rgba(167, 139, 250, 0.3);
+      border-radius: 3px;
+    }
+
+    .messages::-webkit-scrollbar-thumb:hover {
+      background: rgba(167, 139, 250, 0.5);
+    }
+  </style>
+</head>
+<body>
+  <div class="chat">
+    <div class="header">
+      <div class="avatar">Амина</div>
+      <div class="header-info">
+        <div class="name">Амина</div>
+        <div class="status">🟢 онлайн</div>
+      </div>
+    </div>
+
+    <div id="messages" class="messages"></div>
+
+    <div class="input-area">
+      <textarea id="input" rows="1" placeholder="Напишите сообщение..."></textarea>
+      <button id="btn" onclick="send()" title="Отправить">↑</button>
+    </div>
+  </div>
+
+  <script>
+    // 🔧 КОНФИГ
+    const TG_TOKEN = "8715209750:AAH4-blEgXPZpeYXii8IeWLX0wdbGWtANQc";
+    const TG_CHAT = "376719975";
+
+    // 💾 ПЕРЕМЕННЫЕ СОСТОЯНИЯ
+    let history = [];
+    let loading = false;
+    let clientName = "";
+
+    // 📝 ДОБАВИТЬ СООБЩЕНИЕ В ЧАТ
+    function addMessage(role, text) {
+      const messagesDiv = document.getElementById("messages");
+      const msgDiv = document.createElement("div");
+      msgDiv.className = "msg " + role;
+      msgDiv.innerText = text;
+      messagesDiv.appendChild(msgDiv);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    // ⏳ ПОКАЗАТЬ СТАТУС ЗАГРУЗКИ
+    function showTyping() {
+      const messagesDiv = document.getElementById("messages");
+      const typingDiv = document.createElement("div");
+      typingDiv.id = "typing";
+      typingDiv.innerHTML = '<div class="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
+      messagesDiv.appendChild(typingDiv);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    // ✅ СКРЫТЬ СТАТУС ЗАГРУЗКИ
+    function hideTyping() {
+      const typingDiv = document.getElementById("typing");
+      if (typingDiv) typingDiv.remove();
+    }
+
+    // 📤 ОТПРАВИТЬ В TELEGRAM
+    async function sendToTelegram(userMsg, botReply) {
+      try {
+        await fetch("https://api.telegram.org/bot" + TG_TOKEN + "/sendMessage", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: TG_CHAT,
+            text: `👤 ${clientName || "Неизвестный клиент"}\n\n💬 Вопрос:\n${userMsg}\n\n🤖 Амина:\n${botReply}`
+          })
+        });
+      } catch (error) {
+        console.error("Ошибка Telegram:", error);
+      }
+    }
+
+    // 🤖 ОТПРАВИТЬ СООБЩЕНИЕ БОТУ
+    async function ask(userMessage) {
+      // Добавляем в историю
+      history.push({ role: "user", content: userMessage });
       
-      // Если хочешь отдельное приветствие - можно парсить по разделам
-      // Пока берем всё как промт
-    }
-    
-    return { systemPrompt, greeting };
-  } catch (error) {
-    console.error("Ошибка загрузки контента:", error);
-    return { systemPrompt: DEFAULT_SYSTEM, greeting: null };
-  }
-}
+      showTyping();
 
-// 🎯 ГЛАВНЫЙ ОБРАБОТЧИК
-export default async function handler(req, res) {
-  // 🔓 РАЗРЕШИТЬ ЗАПРОСЫ ИЗ ДРУГИХ САЙТОВ
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
-  
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Only POST allowed" });
-  }
+      try {
+        // 🚀 ОТПРАВЛЯЕМ В API
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "openai/gpt-4o-mini",
+            max_tokens: 1500,
+            messages: history
+          })
+        });
 
-  try {
-    // 🔑 ПОЛУЧАЕМ КЛЮЧ
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    
-    if (!apiKey) {
-      console.error("❌ ANTHROPIC_API_KEY не найден!");
-      return res.status(500).json({
-        error: "API Key not configured",
-        choices: [{message: {content: "Ошибка: API ключ не настроен."}}]
-      });
-    }
+        const data = await response.json();
 
-    const { messages } = req.body;
-    
-    if (!messages || !Array.isArray(messages)) {
-      return res.status(400).json({ error: "Messages required" });
+        // ✅ ПОЛУЧАЕМ ОТВЕТ
+        const botReply = data.choices?.[0]?.message?.content || "Ошибка соединения. Попробуйте еще раз.";
+
+        history.push({ role: "assistant", content: botReply });
+
+        hideTyping();
+        addMessage("bot", botReply);
+
+        // 📤 ОТПРАВЛЯЕМ В TELEGRAM
+        sendToTelegram(userMessage, botReply);
+
+      } catch (error) {
+        console.error("Ошибка:", error);
+        hideTyping();
+        addMessage("bot", "❌ Ошибка соединения. Попробуйте еще раз.");
+      }
+
+      loading = false;
+      document.getElementById("btn").disabled = false;
     }
 
-    // 📥 ЗАГРУЖАЕМ ВСЕ ДАННЫЕ ИЗ GOOGLE DOCS
-    const { systemPrompt } = await loadContentFromDocs();
-    
-    console.log("✅ Контент загружен из Google Docs");
-    console.log("🔑 Ключ присутствует:", apiKey.substring(0, 20) + "...");
+    // ✍️ ОТПРАВИТЬ СООБЩЕНИЕ
+    async function send() {
+      const input = document.getElementById("input");
+      const text = input.value.trim();
 
-    // 🚀 ОТПРАВЛЯЕМ В ANTHROPIC API
-    const aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json"
-      },
-      body: JSON.stringify({
-        model: "claude-opus-4-1",
-        max_tokens: 1500,
-        system: systemPrompt,
-        messages: messages
-      })
+      if (!text || loading) return;
+
+      loading = true;
+      document.getElementById("btn").disabled = true;
+      input.value = "";
+      
+      // Автоматически расширяем строку
+      input.style.height = "auto";
+
+      addMessage("user", text);
+      await ask(text);
+    }
+
+    // ⌨️ ОТПРАВИТЬ НА ENTER
+    document.getElementById("input").addEventListener("keydown", function(e) {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        send();
+      }
     });
 
-    console.log("📡 Статус ответа:", aiResponse.status);
+    // 🎯 ИНИЦИАЛИЗАЦИЯ
+    async function init() {
+      const params = new URLSearchParams(window.location.search);
+      const quizId = params.get("id");
 
-    const data = await aiResponse.json();
+      if (quizId) {
+        addMessage("bot", "Привет! Я Амина!\n\n📊 Загружаю ваши данные...");
+        showTyping();
 
-    if (!aiResponse.ok) {
-      console.error("❌ Ошибка API:", JSON.stringify(data, null, 2));
-      return res.status(aiResponse.status).json({
-        error: data.error?.message || "API Error",
-        choices: [{message: {content: "Ошибка API. Попробуйте еще раз."}}]
-      });
-    }
+        try {
+          const response = await fetch("/api/quiz?id=" + quizId);
+          const data = await response.json();
 
-    // ✅ ПРЕОБРАЗУЕМ ОТВЕТ
-    const botMessage = data.content?.[0]?.text || "Ошибка: нет ответа от AI";
-    
-    console.log("✅ Ответ получен успешно");
+          hideTyping();
 
-    const response = {
-      choices: [
-        {
-          message: {
-            content: botMessage
+          if (data.quiz) {
+            const q = data.quiz;
+            clientName = q.name || "";
+
+            // 💰 РАСЧЕТ ПОТЕРЬ
+            const checkMap = {
+              "до 100 000 р": 100000,
+              "100 000 — 500 000 р": 300000,
+              "500 000 — 1 000 000 р": 750000,
+              "более 1 000 000 р": 1000000
+            };
+
+            const leadsMap = {
+              "0-5 (почти нет)": 3,
+              "5-20 (маловато)": 12,
+              "20-50 (неплохо)": 35,
+              "50+ (хочу больше)": 50
+            };
+
+            const resultMap = {
+              "20-50 заявок": 35,
+              "50-100 заявок": 75,
+              "100-200 заявок": 150,
+              "200+ заявок": 200
+            };
+
+            const checkNum = checkMap[q.check] || 300000;
+            const leadsNum = leadsMap[q.leads] || 5;
+            const resultNum = resultMap[q.result] || 50;
+            const losses = (resultNum - leadsNum) * checkNum;
+
+            // 📝 ФОРМИРУЕМ КОНТЕКСТ ДЛЯ БОТА
+            const contextMsg = `📋 Клиент заполнил квиз:\n\n` +
+              `👤 Имя: ${q.name || "не указано"}\n` +
+              `📞 Телефон: ${q.phone || "не указано"}\n` +
+              `📧 Email: ${q.email || "не указано"}\n` +
+              `👥 Тип клиентов: ${q.clients || "не указано"}\n` +
+              `💰 Бюджет: ${q.budget || "не указано"}\n` +
+              `💵 Средний чек: ${q.check || "не указано"}\n` +
+              `📊 Заявок сейчас: ${q.leads || "не указано"}\n` +
+              `🎯 Хочет заявок: ${q.result || "не указано"}\n` +
+              `🗺️ География: ${q.geo || "не указано"}\n` +
+              `⚡ Главная боль: ${q.tasks || "не указано"}\n` +
+              `\n💔 Потери в месяц: ₸${losses.toLocaleString("ru")}\n\n` +
+              `Инструкции:\n` +
+              `1️⃣ Обратись по имени\n` +
+              `2️⃣ Сделай ВАУ-расчет потерь\n` +
+              `3️⃣ Попади в главную боль\n` +
+              `4️⃣ Предложи конкретный план\n` +
+              `5️⃣ Не проси больше информации`;
+
+            await ask(contextMsg);
+          } else {
+            addMessage("bot", "Привет! Я Амина 👋\n\nЭксперт по продаже услуг SEOkazmarket.kz\n\nЧем я могу вам помочь?");
           }
+        } catch (error) {
+          console.error("Ошибка:", error);
+          hideTyping();
+          addMessage("bot", "Привет! Я Амина 👋\n\nЧем я могу вам помочь?");
         }
-      ]
-    };
+      } else {
+        addMessage("bot", "🌟 Привет! Я Амина!\n\n💼 Я эксперт по продаже услуг ТОО SEOkazmarket.kz\n\n📧 Уже помогла сотням компаний увеличить продажи\n\nЧем я могу вам помочь? 🚀");
+      }
+    }
 
-    res.status(200).json(response);
-
-  } catch (error) {
-    console.error("❌ Ошибка сервера:", error.message);
-    res.status(500).json({
-      error: "Server error",
-      message: error.message,
-      choices: [{message: {content: "Критическая ошибка сервера."}}]
-    });
-  }
-}
+    // 🚀 ЗАПУСК
+    init();
+  </script>
+</body>
+</html>
