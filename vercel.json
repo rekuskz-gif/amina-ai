@@ -1,7 +1,8 @@
 {
   "version": 2,
-  "buildCommand": "echo 'No build required'",
   "public": false,
+  "buildCommand": "echo 'No build required'",
+  "outputDirectory": "./",
   "headers": [
     {
       "source": "/(.*)",
