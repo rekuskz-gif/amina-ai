@@ -11,16 +11,26 @@ async function loadPrompt() {
     console.log("📄 Статус Google Docs:", response.status);
     
     if (!response.ok) {
-      console.warn("⚠️ Google Docs ошибка, используем дефолт");
-      return "Ты Амина, консультант SEOkazmarket.kz";
+      const defaultPrompt = "Ты Амина, консультант SEOkazmarket.kz";
+      console.log("⚠️ Google Docs недоступна, используем дефолт");
+      return defaultPrompt;
     }
     
-    const text = await response.text();
-    console.log("✅ Промт загружен:", text.substring(0, 50) + "...");
+    let text = await response.text();
+    text = text.trim();
     
-    return text.trim() || "Ты Амина, консультант SEOkazmarket.kz";
+    if (!text || text.length === 0) {
+      const defaultPrompt = "Ты Амина, консультант SEOkazmarket.kz";
+      console.warn("⚠️ Промт пуст! Используем дефолт");
+      return defaultPrompt;
+    }
+    
+    console.log("✅ Промт загружен, длина:", text.length, "символов");
+    console.log("📝 Промт:", text.substring(0, 100) + "...");
+    return text;
+    
   } catch (e) {
-    console.error("❌ Ошибка загрузки промта:", e.message);
+    console.error("❌ loadPrompt error:", e.message);
     return "Ты Амина, консультант SEOkazmarket.kz";
   }
 }
@@ -80,9 +90,22 @@ module.exports = async (req, res) => {
     console.log("✅ Messages получены:", messages.length, "сообщений");
 
     const systemPrompt = await loadPrompt();
-    console.log("📌 System Prompt установлен");
+    console.log("📌 System Prompt установлен, длина:", systemPrompt.length);
+
+    if (!systemPrompt || systemPrompt.length === 0) {
+      console.error("❌ System Prompt пуст!");
+      return res.status(400).json({ error: "System prompt is empty" });
+    }
+
+    const requestBody = {
+      model: "claude-haiku-4-5",
+      max_tokens: 300,
+      system: systemPrompt,
+      messages: messages
+    };
 
     console.log("🔗 Отправляю запрос в Anthropic API...");
+    console.log("📊 Запрос:", JSON.stringify(requestBody, null, 2));
     
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -91,17 +114,13 @@ module.exports = async (req, res) => {
         "anthropic-version": "2023-06-01",
         "content-type": "application/json"
       },
-      body: JSON.stringify({
-        model: "claude-haiku-4-5",
-        max_tokens: 300,
-        system: systemPrompt,
-        messages: messages
-      })
+      body: JSON.stringify(requestBody)
     });
 
     console.log("📡 Статус ответа Anthropic:", response.status);
 
     const data = await response.json();
+    console.log("📥 Ответ от API:", JSON.stringify(data, null, 2));
 
     if (!response.ok) {
       console.error("❌ Anthropic API ошибка:", JSON.stringify(data, null, 2));
