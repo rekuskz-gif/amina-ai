@@ -4,27 +4,12 @@ async function loadPrompt() {
   try {
     const url = `https://docs.google.com/document/d/${GOOGLE_DOC_ID}/export?format=txt`;
     const response = await fetch(url);
-    if (!response.ok) return "Ты Амина, консультант SEOkazmarket.kz";
+    if (!response.ok) return "Ты Амина, консультант";
     const text = await response.text();
-    return text.trim() || "Ты Амина, консультант SEOkazmarket.kz";
+    return text.trim() || "Ты Амина, консультант";
   } catch (e) {
-    return "Ты Амина, консультант SEOkazmarket.kz";
+    return "Ты Амина, консультант";
   }
-}
-
-function getAllowedDomains(systemPrompt) {
-  const match = systemPrompt.match(/РАЗРЕШЕННЫЕ САЙТЫ:([\s\S]*?)(?:\n\n|$)/);
-  if (!match) return ["seokazmarket.kz"];
-  const sites = match[1].split('\n').filter(line => line.includes('-'));
-  return sites.map(s => s.replace('-', '').trim()).filter(s => s);
-}
-
-function isAllowedDomain(userMessage, allowedDomains) {
-  const lowerMessage = userMessage.toLowerCase();
-  for (let domain of allowedDomains) {
-    if (lowerMessage.includes(domain)) return true;
-  }
-  return false;
 }
 
 export default async function handler(req, res) {
@@ -43,14 +28,6 @@ export default async function handler(req, res) {
     if (!messages || !Array.isArray(messages)) return res.status(400).json({ error: "Messages required" });
 
     const systemPrompt = await loadPrompt();
-    const allowedDomains = getAllowedDomains(systemPrompt);
-    const userMessage = messages[messages.length - 1]?.content || "";
-    
-    if (!isAllowedDomain(userMessage, allowedDomains)) {
-      return res.status(200).json({
-        choices: [{message: {content: `Я помогаю только с ${allowedDomains.join(", ")}`}}]
-      });
-    }
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
