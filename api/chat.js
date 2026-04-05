@@ -1,6 +1,6 @@
 // 🔧 КОНФИГ
 const GOOGLE_DOC_ID = "1Q54y1AsUX_tzxP7_zAckX_XjzSNR_CRmVCpCCt-ub30";
-const DEFAULT_SYSTEM = "Бери информации с промта привесвие";
+const DEFAULT_SYSTEM = "Ты — Амина, эксперт по продаже услуг ТОО SEOkazmarket.kz.";
 
 // 📥 ЗАГРУЗКА ПОЛНОГО КОНТЕНТА ИЗ GOOGLE DOCS
 async function loadContentFromDocs() {
