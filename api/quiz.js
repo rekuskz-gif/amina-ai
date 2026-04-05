@@ -1,178 +1,95 @@
-// 🔧 КОНФИГ БАЗЫ ДАННЫХ
-const KV_URL = "https://ready-snail-66852.upstash.io";
-const KV_TOKEN = "gQAAAAAAAQUkAAIncDE1ODRmZjFhODNlMDU0YzA0ODEyNzI2YTczNDA2ZGJkNHAxNjY4NTI";
-
-// 🔧 КОНФИГ TELEGRAM
+const GOOGLE_DOC_ID = "1Q54y1AsUX_tzxP7_zAckX_XjzSNR_CRmVCpCCt-ub30";
 const TG_TOKEN = "8715209750:AAH4-blEgXPZpeYXii8IeWLX0wdbGWtANQc";
-const TG_CHAT_ID = "376719975";
+const TG_CHAT = "376719975";
 
-// 🎯 ГЛАВНЫЙ ОБРАБОТЧИК
-export default async function handler(req, res) {
-  // 🔓 РАЗРЕШИТЬ ЗАПРОСЫ
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
-
-  // 📝 ПОЛУЧИТЬ ДАННЫЕ КВИЗА
-  if (req.method === "GET") {
-    return handleGet(req, res);
-  }
-
-  // ✍️ СОХРАНИТЬ ДАННЫЕ КВИЗА
-  if (req.method === "POST") {
-    return handlePost(req, res);
-  }
-
-  res.status(405).json({ error: "Method not allowed" });
-}
-
-// ✍️ СОХРАНЕНИЕ КВИЗА
-async function handlePost(req, res) {
+async function loadPrompt() {
   try {
-    const data = req.body;
-    const id = (data.tranid || Date.now().toString()).replace(/[^a-zA-Z0-9_]/g, "_");
-
-    // 💾 СОХРАНЯЕМ В БАЗУ ДАННЫХ
-    await fetch(`${KV_URL}/set/amina_quiz_${id}`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${KV_TOKEN}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        ex: 86400,
-        value: JSON.stringify(data)
-      })
-    });
-
-    // 📌 СОХРАНЯЕМ ПОСЛЕДНЮЮ ЗАЯВКУ
-    await fetch(`${KV_URL}/set/amina_quiz_latest`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${KV_TOKEN}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        ex: 3600,
-        value: JSON.stringify(data)
-      })
-    });
-
-    // 📤 ОТПРАВЛЯЕМ В TELEGRAM
-    await sendTelegramMessage(data, id);
-
-    return res.status(200).json({
-      ok: true,
-      id: id,
-      message: "Quiz saved successfully"
-    });
-
-  } catch (error) {
-    console.error("Ошибка при сохранении квиза:", error);
-    return res.status(500).json({
-      error: "Failed to save quiz",
-      message: error.message
-    });
+    const url = `https://docs.google.com/document/d/${GOOGLE_DOC_ID}/export?format=txt`;
+    const response = await fetch(url);
+    if (!response.ok) return "Ты Амина, консультант SEOkazmarket.kz";
+    const text = await response.text();
+    return text.trim() || "Ты Амина, консультант SEOkazmarket.kz";
+  } catch (e) {
+    return "Ты Амина, консультант SEOkazmarket.kz";
   }
 }
 
-// 📥 ПОЛУЧЕНИЕ КВИЗА
-async function handleGet(req, res) {
+async function sendToTelegram(history) {
   try {
-    const { id } = req.query;
-
-    if (!id) {
-      return res.status(400).json({ error: "ID required" });
-    }
-
-    const safeId = id === "latest" 
-      ? "latest" 
-      : id.replace(/[^a-zA-Z0-9_]/g, "_");
-
-    // 📖 ПОЛУЧАЕМ ИЗ БАЗЫ ДАННЫХ
-    const response = await fetch(`${KV_URL}/get/amina_quiz_${safeId}`, {
-      headers: {
-        "Authorization": `Bearer ${KV_TOKEN}`
-      }
-    });
-
-    const raw = await response.text();
-    let quiz = null;
-
-    // 🔄 ПАРСИМ JSON
-    try {
-      const match = raw.match(/\{.*\}/s);
-      if (match) {
-        quiz = JSON.parse(match[0]);
-      }
-    } catch (parseError) {
-      console.error("Ошибка парсинга:", parseError);
-    }
-
-    return res.status(200).json({
-      quiz: quiz,
-      found: quiz !== null
-    });
-
-  } catch (error) {
-    console.error("Ошибка при получении квиза:", error);
-    return res.status(500).json({
-      error: "Failed to get quiz",
-      message: error.message
-    });
-  }
-}
-
-// 📤 ОТПРАВКА В TELEGRAM
-async function sendTelegramMessage(data, id) {
-  try {
-    const fieldNames = {
-      name: "Имя",
-      phone: "Телефон",
-      email: "Email",
-      clients: "Тип клиентов",
-      budget: "Бюджет",
-      check: "Средний чек",
-      leads: "Заявок сейчас",
-      result: "Хочет заявок",
-      geo: "География",
-      tasks: "Задачи",
-      competitors: "Конкуренты",
-      advantage: "Преимущество",
-      services: "Услуги"
-    };
-
-    let messageText = "📋 Новая заявка от Амины!\n\n";
-
-    // Добавляем все поля
-    for (const [key, label] of Object.entries(fieldNames)) {
-      if (data[key]) {
-        messageText += `• ${label}: ${data[key]}\n`;
+    let text = "📋 История чата Амины:\n\n";
+    
+    for (let msg of history) {
+      if (msg.role === "user") {
+        text += `👤 Клиент: ${msg.content}\n\n`;
+      } else {
+        text += `🤖 Амина: ${msg.content}\n\n`;
       }
     }
-
-    messageText += `\n🔗 Ссылка на бот: https://amina-bot.vercel.app?id=${id}`;
-
-    // 🚀 ОТПРАВЛЯЕМ
+    
     await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
       method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        chat_id: TG_CHAT,
+        text: text
+      })
+    });
+  } catch (e) {
+    console.error("Telegram error:", e);
+  }
+}
+
+export default async function handler(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  
+  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method !== "POST") return res.status(405).json({ error: "Only POST" });
+
+  try {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) return res.status(500).json({ error: "API Key not configured" });
+
+    const { messages } = req.body;
+    if (!messages || !Array.isArray(messages)) return res.status(400).json({ error: "Messages required" });
+
+    const systemPrompt = await loadPrompt();
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
       headers: {
-        "Content-Type": "application/json"
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json"
       },
       body: JSON.stringify({
-        chat_id: TG_CHAT_ID,
-        text: messageText
+        model: "claude-opus-4-1",
+        max_tokens: 300,
+        system: systemPrompt,
+        messages: messages
       })
     });
 
-    console.log("✅ Сообщение отправлено в Telegram");
+    const data = await response.json();
+
+    if (!response.ok) {
+      return res.status(response.status).json({
+        error: data.error?.message || "API Error",
+        choices: [{message: {content: "Ошибка API"}}]
+      });
+    }
+
+    const botMessage = data.content?.[0]?.text || "Ошибка";
+    
+    await sendToTelegram(messages);
+    
+    res.status(200).json({ choices: [{message: {content: botMessage}}] });
 
   } catch (error) {
-    console.error("Ошибка Telegram:", error);
-    // Не прерываем если ошибка с TG
+    res.status(500).json({
+      error: "Server error",
+      choices: [{message: {content: "Ошибка сервера"}}]
+    });
   }
 }
