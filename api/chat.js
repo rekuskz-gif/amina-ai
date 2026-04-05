@@ -1,22 +1,36 @@
 // 🔧 КОНФИГ
 const GOOGLE_DOC_ID = "1Q54y1AsUX_tzxP7_zAckX_XjzSNR_CRmVCpCCt-ub30";
-const DEFAULT_SYSTEM = "Ты — Амина, эксперт по продаже услуг ТОО SEOkazmarket.kz. 10 лет опыта в продажах и маркетинге. Живая, теплая, уверенная. Никогда не говори что ты ИИ или бот. Пиши коротко — максимум 5-6 строк. Используй данные клиента если они есть.";
+const DEFAULT_SYSTEM = "Ты — Амина, эксперт по продаже услуг ТОО SEOkazmarket.kz.";
 
-// 📥 ЗАГРУЗКА ПРОМТА ИЗ GOOGLE DOCS
-async function loadSystemPrompt() {
+// 📥 ЗАГРУЗКА ПОЛНОГО КОНТЕНТА ИЗ GOOGLE DOCS
+async function loadContentFromDocs() {
   try {
     const url = `https://docs.google.com/document/d/${GOOGLE_DOC_ID}/export?format=txt`;
     const response = await fetch(url);
     
     if (!response.ok) {
-      return DEFAULT_SYSTEM;
+      return { systemPrompt: DEFAULT_SYSTEM, greeting: null };
     }
     
     const text = await response.text();
-    return text.trim() || DEFAULT_SYSTEM;
+    const lines = text.trim().split('\n').filter(line => line.trim());
+    
+    // Берем первую строку как приветствие (может быть несколько строк)
+    let greeting = null;
+    let systemPrompt = DEFAULT_SYSTEM;
+    
+    if (lines.length > 0) {
+      // Берем всё содержимое как системный промт
+      systemPrompt = text.trim();
+      
+      // Если хочешь отдельное приветствие - можно парсить по разделам
+      // Пока берем всё как промт
+    }
+    
+    return { systemPrompt, greeting };
   } catch (error) {
-    console.error("Ошибка загрузки промта:", error);
-    return DEFAULT_SYSTEM;
+    console.error("Ошибка загрузки контента:", error);
+    return { systemPrompt: DEFAULT_SYSTEM, greeting: null };
   }
 }
 
@@ -53,10 +67,10 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Messages required" });
     }
 
-    // 📥 ЗАГРУЖАЕМ СИСТЕМНЫЙ ПРОМТ
-    const systemPrompt = await loadSystemPrompt();
+    // 📥 ЗАГРУЖАЕМ ВСЕ ДАННЫЕ ИЗ GOOGLE DOCS
+    const { systemPrompt } = await loadContentFromDocs();
     
-    console.log("✅ Отправляем в Anthropic API...");
+    console.log("✅ Контент загружен из Google Docs");
     console.log("🔑 Ключ присутствует:", apiKey.substring(0, 20) + "...");
 
     // 🚀 ОТПРАВЛЯЕМ В ANTHROPIC API
