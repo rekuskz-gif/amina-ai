@@ -9,7 +9,8 @@
     body { font-family: Georgia, serif; background: linear-gradient(135deg, #0f0c29, #302b63, #24243e); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
     .chat { width: 100%; max-width: 680px; background: rgba(255,255,255,0.05); border-radius: 24px; overflow: hidden; display: flex; flex-direction: column; height: 85vh; box-shadow: 0 8px 32px rgba(167,139,250,0.2); }
     .header { padding: 20px; display: flex; align-items: center; gap: 14px; border-bottom: 1px solid rgba(255,255,255,0.1); }
-    .avatar { width: 48px; height: 48px; border-radius: 50%; border: 2px solid #a78bfa; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #7c3aed, #4f46e5); color: white; font-weight: bold; font-size: 20px; }
+    .avatar { width: 48px; height: 48px; border-radius: 50%; border: 2px solid #a78bfa; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    .avatar img { width: 100%; height: 100%; object-fit: cover; }
     .header-info { flex: 1; }
     .name { color: white; font-weight: bold; }
     .status { color: #a78bfa; font-size: 12px; }
@@ -31,7 +32,9 @@
 <body>
   <div class="chat">
     <div class="header">
-      <div class="avatar">А</div>
+      <div class="avatar">
+        <img src="https://raw.githubusercontent.com/rekuskz-gif/amina-ai/main/amina-icon.png" alt="Амина">
+      </div>
       <div class="header-info">
         <div class="name">Амина</div>
         <div class="status">🟢 онлайн</div>
