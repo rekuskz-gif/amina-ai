@@ -17,7 +17,6 @@ async function loadPrompt() {
     return text || "Ты Амина, консультант SEOkazmarket.kz";
     
   } catch (e) {
-    console.error("Ошибка loadPrompt:", e.message);
     return "Ты Амина, консультант SEOkazmarket.kz";
   }
 }
@@ -43,7 +42,7 @@ async function sendToTelegram(messages) {
       })
     });
   } catch (e) {
-    console.error("Telegram error:", e.message);
+    console.error("Telegram error:", e);
   }
 }
 
@@ -75,13 +74,17 @@ module.exports = async (req, res) => {
         model: "claude-haiku-4-5",
         max_tokens: 300,
         system: systemPrompt,
-        messages: messages
+        messages: messages.map(msg => ({
+          role: msg.role,
+          content: msg.content
+        }))
       })
     });
 
     const data = await response.json();
 
     if (!response.ok) {
+      console.error("API Error:", data);
       return res.status(response.status).json({
         error: data.error?.message || "API Error",
         choices: [{message: {content: "Ошибка API"}}]
@@ -95,6 +98,7 @@ module.exports = async (req, res) => {
     res.status(200).json({ choices: [{message: {content: botMessage}}] });
 
   } catch (error) {
+    console.error("Error:", error);
     res.status(500).json({
       error: "Server error",
       choices: [{message: {content: "Ошибка сервера"}}]
