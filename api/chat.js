@@ -9,14 +9,11 @@ async function loadSystemPrompt() {
     const response = await fetch(url);
     
     if (!response.ok) {
-      console.log("Google Docs недоступен, используем дефолтный промт");
       return DEFAULT_SYSTEM;
     }
     
     const text = await response.text();
-    const prompt = text.trim();
-    
-    return prompt || DEFAULT_SYSTEM;
+    return text.trim() || DEFAULT_SYSTEM;
   } catch (error) {
     console.error("Ошибка загрузки промта:", error);
     return DEFAULT_SYSTEM;
@@ -39,13 +36,14 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 🔑 ПОЛУЧАЕМ КЛЮЧ ИЗ ПЕРЕМЕННЫХ ОКРУЖЕНИЯ
+    // 🔑 ПОЛУЧАЕМ КЛЮЧ
     const apiKey = process.env.ANTHROPIC_API_KEY;
     
     if (!apiKey) {
+      console.error("❌ ANTHROPIC_API_KEY не найден!");
       return res.status(500).json({
         error: "API Key not configured",
-        message: "Add ANTHROPIC_API_KEY to environment variables"
+        choices: [{message: {content: "Ошибка конфигурации. Ключ API не добавлен."}}]
       });
     }
 
@@ -58,11 +56,7 @@ export default async function handler(req, res) {
     // 📥 ЗАГРУЖАЕМ СИСТЕМНЫЙ ПРОМТ
     const systemPrompt = await loadSystemPrompt();
     
-    // ✅ ГОТОВИМ СООБЩЕНИЯ ДЛЯ ANTHROPIC
-    const messagesForApi = messages.map(msg => ({
-      role: msg.role,
-      content: msg.content
-    }));
+    console.log("✅ Отправляем в Anthropic API...");
 
     // 🚀 ОТПРАВЛЯЕМ В ANTHROPIC API
     const aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
@@ -70,24 +64,38 @@ export default async function handler(req, res) {
       headers: {
         "x-api-key": apiKey,
         "anthropic-version": "2023-06-01",
-        "Content-Type": "application/json"
+        "content-type": "application/json"
       },
       body: JSON.stringify({
         model: "claude-3-5-sonnet-20241022",
         max_tokens: 1500,
         system: systemPrompt,
-        messages: messagesForApi
+        messages: messages
       })
     });
 
+    console.log("📡 Статус ответа:", aiResponse.status);
+
     const data = await aiResponse.json();
 
+    if (!aiResponse.ok) {
+      console.error("❌ Ошибка API:", data);
+      return res.status(aiResponse.status).json({
+        error: data.error?.message || "API Error",
+        choices: [{message: {content: "Ошибка соединения с AI. Попробуйте еще раз."}}]
+      });
+    }
+
     // ✅ ПРЕОБРАЗУЕМ ОТВЕТ
+    const botMessage = data.content?.[0]?.text || "Ошибка: нет ответа";
+    
+    console.log("✅ Ответ получен:", botMessage.substring(0, 50) + "...");
+
     const response = {
       choices: [
         {
           message: {
-            content: data.content?.[0]?.text || "Ошибка: нет ответа"
+            content: botMessage
           }
         }
       ]
@@ -96,17 +104,11 @@ export default async function handler(req, res) {
     res.status(200).json(response);
 
   } catch (error) {
-    console.error("Ошибка сервера:", error);
+    console.error("❌ Ошибка сервера:", error);
     res.status(500).json({
       error: "Server error",
       message: error.message,
-      choices: [
-        {
-          message: {
-            content: "Ошибка соединения с AI. Попробуйте еще раз."
-          }
-        }
-      ]
+      choices: [{message: {content: "Критическая ошибка. Попробуйте позже."}}]
     });
   }
 }
