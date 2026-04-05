@@ -43,7 +43,7 @@ export default async function handler(req, res) {
       console.error("❌ ANTHROPIC_API_KEY не найден!");
       return res.status(500).json({
         error: "API Key not configured",
-        choices: [{message: {content: "Ошибка конфигурации. Ключ API не добавлен."}}]
+        choices: [{message: {content: "Ошибка: API ключ не настроен."}}]
       });
     }
 
@@ -57,6 +57,7 @@ export default async function handler(req, res) {
     const systemPrompt = await loadSystemPrompt();
     
     console.log("✅ Отправляем в Anthropic API...");
+    console.log("🔑 Ключ присутствует:", apiKey.substring(0, 20) + "...");
 
     // 🚀 ОТПРАВЛЯЕМ В ANTHROPIC API
     const aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
@@ -67,7 +68,7 @@ export default async function handler(req, res) {
         "content-type": "application/json"
       },
       body: JSON.stringify({
-        model: "claude-3-5-sonnet-20241022",
+        model: "claude-opus-4-1",
         max_tokens: 1500,
         system: systemPrompt,
         messages: messages
@@ -79,17 +80,17 @@ export default async function handler(req, res) {
     const data = await aiResponse.json();
 
     if (!aiResponse.ok) {
-      console.error("❌ Ошибка API:", data);
+      console.error("❌ Ошибка API:", JSON.stringify(data, null, 2));
       return res.status(aiResponse.status).json({
         error: data.error?.message || "API Error",
-        choices: [{message: {content: "Ошибка соединения с AI. Попробуйте еще раз."}}]
+        choices: [{message: {content: "Ошибка API. Попробуйте еще раз."}}]
       });
     }
 
     // ✅ ПРЕОБРАЗУЕМ ОТВЕТ
-    const botMessage = data.content?.[0]?.text || "Ошибка: нет ответа";
+    const botMessage = data.content?.[0]?.text || "Ошибка: нет ответа от AI";
     
-    console.log("✅ Ответ получен:", botMessage.substring(0, 50) + "...");
+    console.log("✅ Ответ получен успешно");
 
     const response = {
       choices: [
@@ -104,11 +105,11 @@ export default async function handler(req, res) {
     res.status(200).json(response);
 
   } catch (error) {
-    console.error("❌ Ошибка сервера:", error);
+    console.error("❌ Ошибка сервера:", error.message);
     res.status(500).json({
       error: "Server error",
       message: error.message,
-      choices: [{message: {content: "Критическая ошибка. Попробуйте позже."}}]
+      choices: [{message: {content: "Критическая ошибка сервера."}}]
     });
   }
 }
