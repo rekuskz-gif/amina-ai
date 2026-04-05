@@ -6,19 +6,26 @@ async function loadPrompt() {
   try {
     const url = `https://docs.google.com/document/d/${GOOGLE_DOC_ID}/export?format=txt`;
     const response = await fetch(url);
-    if (!response.ok) return "Ты Амина, консультант SEOkazmarket.kz";
-    const text = await response.text();
-    return text.trim() || "Ты Амина, консультант SEOkazmarket.kz";
+    
+    if (!response.ok) {
+      return "Ты Амина, консультант SEOkazmarket.kz";
+    }
+    
+    let text = await response.text();
+    text = text.trim();
+    
+    return text || "Ты Амина, консультант SEOkazmarket.kz";
+    
   } catch (e) {
     return "Ты Амина, консультант SEOkazmarket.kz";
   }
 }
 
-async function sendToTelegram(history) {
+async function sendToTelegram(messages) {
   try {
     let text = "📋 История чата Амины:\n\n";
     
-    for (let msg of history) {
+    for (let msg of messages) {
       if (msg.role === "user") {
         text += `👤 Клиент: ${msg.content}\n\n`;
       } else {
@@ -39,7 +46,7 @@ async function sendToTelegram(history) {
   }
 }
 
-export default async function handler(req, res) {
+module.exports = async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -67,13 +74,17 @@ export default async function handler(req, res) {
         model: "claude-haiku-4-5",
         max_tokens: 300,
         system: systemPrompt,
-        messages: messages
+        messages: messages.map(msg => ({
+          role: msg.role,
+          content: msg.content
+        }))
       })
     });
 
     const data = await response.json();
 
     if (!response.ok) {
+      console.error("API Error:", data);
       return res.status(response.status).json({
         error: data.error?.message || "API Error",
         choices: [{message: {content: "Ошибка API"}}]
@@ -87,9 +98,10 @@ export default async function handler(req, res) {
     res.status(200).json({ choices: [{message: {content: botMessage}}] });
 
   } catch (error) {
+    console.error("Error:", error);
     res.status(500).json({
       error: "Server error",
       choices: [{message: {content: "Ошибка сервера"}}]
     });
   }
-}
+};
